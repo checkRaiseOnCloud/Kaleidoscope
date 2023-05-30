@@ -16,7 +16,9 @@ enum Token {
 };
 
 /* Scanner values */
-extern int CurTok;
+extern string identifierStr;
+extern double numVal;
+extern int currToken;
 
 /** @brief Scanner helper function to get token from stdin
  *  @return the next token from standard input

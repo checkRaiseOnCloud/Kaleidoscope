@@ -5,8 +5,7 @@
 
 string identifierStr;
 double numVal;
-
-int CurTok;
+int currToken;
 
 /// gettok - Return the next token from standard input.
 static int gettok() {
@@ -61,11 +60,12 @@ static int gettok() {
         return token_eof;
 
     // Otherwise, just return the character as its ascii value.
+    // We use this for special characters like parenthesis and operators
     int ThisChar = LastChar;
     LastChar = getchar();
     return ThisChar;
 }
 
 int getNextToken() {
-  return CurTok = gettok();
+  return currToken = gettok();
 }

@@ -25,21 +25,6 @@
 
 using namespace std;
 
-/*
- * Operator Precedence
- */
-
-/* mapping from operator to precedence */
-map<char, int> operatorPrecedence;
-
-void setOperatorPrecedence(){
-
-}
-
-int getOperatorPrecedence() {
-
-}
-
 namespace {
 
 /* Base class for expression nodes */
@@ -105,9 +90,12 @@ public:
  */
 std::unique_ptr<ASTFunctionExpr> ParseDefinition();
 
-/** @brief Parser helper function to parse a definition
- *  @return Expression that represents a function definition
+/** @brief Parser helper function to parse an extern expression
+ *  @return Expression that represent a function prototype that is defined elsewhere
  */
-std::unique_ptr<ASTProtoExpr> ParseExtern();
+std::unique_ptr<ASTProtoExpr> parseExtern();
 
-std::unique_ptr<ASTFunctionExpr> ParseTopLevelExpression();
+/** @brief Parser helper function to parse a top level expression
+ *  @return Expression that represents a top level expression
+ */
+std::unique_ptr<ASTFunctionExpr> parseTopLevelExpression();
