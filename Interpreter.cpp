@@ -31,7 +31,7 @@ static void HandleDefinition() {
 }
 
 static void HandleExtern() {
-  if (ParseExtern()) {
+  if (parseExtern()) {
     fprintf(stderr, "Parsed an extern\n");
   } else {
     // Skip token for error recovery.
