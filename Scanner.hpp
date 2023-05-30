@@ -1,11 +1,14 @@
-#include <string>
-
-using namespace std;
-
 /*
  **************************************** Scanner ****************************************
  * Turn input into valid tokens
  */
+
+#ifndef SCANNER_H_
+#define SCANNER_H_
+
+#include <string>
+
+using namespace std;
 
 enum Token {
     token_eof = 0,
@@ -25,3 +28,4 @@ extern int currToken;
  */
 int getNextToken();
 
+#endif 

@@ -32,9 +32,14 @@
  * TopLevelExpr is stored as an anonymous FunctionExpr
  */
 
-#include "Parser.hpp"
+#include <map>
 
+#include "Parser.hpp"
 #include "Scanner.hpp"
+
+static std::unique_ptr<ASTBaseExpr> parseExpression();
+
+static std::unique_ptr<ASTBaseExpr> parseBinaryRHS(int exprPrec, std::unique_ptr<ASTBaseExpr> LHS);
 
 /*
  * Operator Precedence
@@ -68,7 +73,7 @@ int getOperatorPrecedence() {
  */
 
 std::unique_ptr<ASTBaseExpr> LogError(const char *Str) {
-  fprintf(stderr, "Error: %s\n", Str);
+  std::cerr << "Error: %s" << std::endl;
   return nullptr;
 }
 std::unique_ptr<ASTProtoExpr> LogErrorP(const char *Str) {
@@ -101,7 +106,7 @@ static std::unique_ptr<ASTBaseExpr> parseParenExpr() {
     if (currToken != ')') {
         return LogError("Missing \')\'");
     }
-
+    return subExpr;
 }
 
 /** @brief Parser helper function to parse VariableExpr or CallExpr
@@ -172,7 +177,7 @@ static std::unique_ptr<ASTBaseExpr> parsePrimary() {
 /** @brief Parser helper function to parse an expression
  *  @return Expression that reprets the outcome of a binary operator
  */
-static std::unique_ptr<ASTBaseExpr> parseExpression() {
+std::unique_ptr<ASTBaseExpr> parseExpression() {
     // Parse the left hand side
     auto LHS = parsePrimary();
     if(!LHS) {
@@ -184,7 +189,7 @@ static std::unique_ptr<ASTBaseExpr> parseExpression() {
 /** @brief Parser helper function to parse an expression
  *  @return Expression that represents the right hand side of a binary operator
  */
-static std::unique_ptr<ASTBaseExpr> parseBinaryRHS(int exprPrec, std::unique_ptr<ASTBaseExpr> LHS) {
+std::unique_ptr<ASTBaseExpr> parseBinaryRHS(int exprPrec, std::unique_ptr<ASTBaseExpr> LHS) {
     while(true) {
         int tokenPrec = getOperatorPrecedence();
 
@@ -239,6 +244,8 @@ static std::unique_ptr<ASTProtoExpr> parsePrototype() {
     }
     // eat final ')'
     getNextToken();
+
+    return std::make_unique<ASTProtoExpr>(functionName, std::move(argumentNames));
 }
 
 std::unique_ptr<ASTFunctionExpr> parseDefinition() {

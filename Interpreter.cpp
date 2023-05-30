@@ -1,29 +1,28 @@
 /*
  * A simple interpreter for a toy language Kaleidoscope
+ * Compile:
+ *  clang++ -g -O3 Interpreter.cpp Scanner.cpp Parser.cpp `llvm-config --cxxflags`
+ * Run:
+ *  
  */
-
-#include <cstdio>
 #include <map>
 #include <string>
 #include <memory>
 #include <vector>
-#include "Expression.hpp"
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+
+#include "Parser.hpp"
+#include "Scanner.hpp"
 
 using namespace std;
 
-/*
- **************************************** Parser ****************************************
- */
-
-/* current token to be consumed by the parser */
-static int currToken;
-
-/* consume a token from the stream of input */
-static int getNextToken() { return currToken = getToken(); }
-
 static void HandleDefinition() {
-  if (ParseDefinition()) {
-    fprintf(stderr, "Parsed a function definition.\n");
+  auto defExpr = parseDefinition();
+  if (defExpr) {
+    std::cout << "Parsed a function definition." << std::endl;
+    defExpr->debugMessage(0);
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -31,8 +30,10 @@ static void HandleDefinition() {
 }
 
 static void HandleExtern() {
-  if (parseExtern()) {
-    fprintf(stderr, "Parsed an extern\n");
+  auto externExpr = parseExtern();
+  if (externExpr) {
+    std::cout << "Parsed an extern function." << std::endl;
+    externExpr->debugMessage(0);
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -41,8 +42,10 @@ static void HandleExtern() {
 
 static void HandleTopLevelExpression() {
   // Evaluate a top-level expression into an anonymous function.
-  if (ParseTopLevelExpr()) {
-    fprintf(stderr, "Parsed a top-level expr\n");
+  auto expr = parseTopLevelExpression();
+  if (expr) {
+    std::cout << "Parsed a top level expression." << std::endl;
+    expr->debugMessage(0);
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -51,20 +54,18 @@ static void HandleTopLevelExpression() {
 
 int main() {
     // Main interpreter loop
-    fprintf(stdout, "Welcome to Kaleidoscope Interpreter.\n");
+    std::cout << "Welcome to Kaleidoscope Interpreter." << std::endl;
 
     // setup operatorPrecedence mapping
     setOperatorPrecedence();
 
-    // Kickstart the Interpreter
     getNextToken();
 
     while (true) {
-        printExpressionTree();
-        fprintf(std::cin, "ready> ");
-        switch (CurTok) {
+        std::cout << "ready> ";
+        switch (currToken) {
             case token_eof:
-                return;
+                return 0;
             case ';': // ignore top-level semicolons for now.
                 getNextToken();
                 break;
@@ -79,4 +80,5 @@ int main() {
                 break;
         }
     }
+    return 0;
 }

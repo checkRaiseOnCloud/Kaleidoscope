@@ -13,6 +13,9 @@
  *      ProtoExpr      extern
  */
 
+#ifndef PARSER_H_
+#define PARSER_H_
+
 #include <string>
 #include <memory>
 #include <vector>
@@ -20,8 +23,6 @@
 #include <iostream>
 
 using namespace std;
-
-namespace {
 
 static void printIndentation(int level){
     for(int i = 0; i < level; i++) {
@@ -137,12 +138,12 @@ public:
     }
 };
 
-} // anonymous namespace
+void setOperatorPrecedence();
 
 /** @brief Parser helper function to parse a function definition
  *  @return Expression that represents a function definition
  */
-std::unique_ptr<ASTFunctionExpr> ParseDefinition();
+std::unique_ptr<ASTFunctionExpr> parseDefinition();
 
 /** @brief Parser helper function to parse an extern expression
  *  @return Expression that represent a function prototype that is defined elsewhere
@@ -153,3 +154,5 @@ std::unique_ptr<ASTProtoExpr> parseExtern();
  *  @return Expression that represents a top level expression
  */
 std::unique_ptr<ASTFunctionExpr> parseTopLevelExpression();
+
+#endif
