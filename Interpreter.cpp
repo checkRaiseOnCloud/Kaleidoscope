@@ -1,6 +1,10 @@
 /*
  * A simple interpreter for a toy language Kaleidoscope
+ * Start docker container
+ *      docker build -t ubuntu20 .
+ *      docker run -it -v $(pwd):/Kaleidoscope ubuntu20
  * Compile:
+ * 
  *  clang++ -g -O3 Interpreter.cpp Scanner.cpp Parser.cpp `llvm-config --cxxflags`
  * Run:
  *  
@@ -12,6 +16,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <llvm/Support/raw_ostream.h>
 
 #include "Parser.hpp"
 #include "Scanner.hpp"
@@ -23,6 +28,10 @@ static void HandleDefinition() {
   if (defExpr) {
     std::cout << "Parsed a function definition." << std::endl;
     defExpr->debugMessage(0);
+    std::cout << "LLVM IR:" << std::endl;
+    auto *defIR = defExpr->codegen();
+    defIR->print(errs());
+    std::cout << "End of LLVM IR" << std::endl;
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -34,6 +43,10 @@ static void HandleExtern() {
   if (externExpr) {
     std::cout << "Parsed an extern function." << std::endl;
     externExpr->debugMessage(0);
+    std::cout << "LLVM IR:" << std::endl;
+    auto *externIR = externExpr->codegen();
+    externIR->print(errs());
+    std::cout << "End of LLVM IR" << std::endl;
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -42,10 +55,14 @@ static void HandleExtern() {
 
 static void HandleTopLevelExpression() {
   // Evaluate a top-level expression into an anonymous function.
-  auto expr = parseTopLevelExpression();
-  if (expr) {
+  auto topLevelExpr = parseTopLevelExpression();
+  if (topLevelExpr) {
     std::cout << "Parsed a top level expression." << std::endl;
-    expr->debugMessage(0);
+    topLevelExpr->debugMessage(0);
+    std::cout << "LLVM IR:" << std::endl;
+    auto *topLevelIR = topLevelExpr->codegen();
+    topLevelIR->print(errs());
+    std::cout << "End of LLVM IR" << std::endl;
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -53,12 +70,10 @@ static void HandleTopLevelExpression() {
 }
 
 int main() {
-    // Main interpreter loop
-    std::cout << "Welcome to Kaleidoscope Interpreter." << std::endl;
-
     // setup operatorPrecedence mapping
     setOperatorPrecedence();
 
+    std::cout << "ready> ";
     getNextToken();
 
     while (true) {

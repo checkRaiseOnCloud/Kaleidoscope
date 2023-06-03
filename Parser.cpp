@@ -37,6 +37,8 @@
 #include "Parser.hpp"
 #include "Scanner.hpp"
 
+using namespace llvm;
+
 static std::unique_ptr<ASTBaseExpr> parseExpression();
 
 static std::unique_ptr<ASTBaseExpr> parseBinaryRHS(int exprPrec, std::unique_ptr<ASTBaseExpr> LHS);
@@ -199,8 +201,8 @@ std::unique_ptr<ASTBaseExpr> parseBinaryRHS(int exprPrec, std::unique_ptr<ASTBas
         }
 
         // eat it
-        getNextToken();
         int binaryOp = currToken;
+        getNextToken();
 
         // Get the primary expression after RHS
         auto RHS = parsePrimary();
@@ -271,4 +273,152 @@ std::unique_ptr<ASTFunctionExpr> parseTopLevelExpression() {
         return std::make_unique<ASTFunctionExpr>(std::move(anonProto), std::move(expr));
     }
     return nullptr;
+}
+
+/*
+ **************************************** Code Gen ****************************************
+ */
+
+static std::unique_ptr<LLVMContext> TheContext;
+static std::unique_ptr<IRBuilder<>> Builder;
+static std::unique_ptr<Module> TheModule;
+static std::map<std::string, Value *> NamedValues;
+
+Value *LogErrorV(const char *Str) {
+  LogError(Str);
+  return nullptr;
+}
+
+Value *ASTNumberExpr::codegen() {
+  return ConstantFP::get(*TheContext, APFloat(this->value));
+}
+
+Value *ASTVariableExpr::codegen() {
+  // Look this variable up in the function.
+  Value *V = NamedValues[this->identifier];
+  if (!V)
+    LogErrorV("Unknown variable name");
+  return V;
+}
+
+Value *ASTBinaryExpr::codegen() {
+  Value *L = this->LHS->codegen();
+  Value *R = this->RHS->codegen();
+  if (!L || !R)
+    return nullptr;
+
+  switch (this->op) {
+  case '+':
+    return Builder->CreateFAdd(L, R, "addtmp");
+  case '-':
+    return Builder->CreateFSub(L, R, "subtmp");
+  case '*':
+    return Builder->CreateFMul(L, R, "multmp");
+  case '<':
+    L = Builder->CreateFCmpULT(L, R, "cmptmp");
+    // Convert bool 0/1 to double 0.0 or 1.0
+    return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext),
+                                 "booltmp");
+  default:
+    return LogErrorV("invalid binary operator");
+  }
+}
+
+Value *ASTCallExpr::codegen() {
+    // Look up the name in the global module table.
+    Function *calleeFunction = TheModule->getFunction(this->callee);
+    if (!calleeFunction){
+        return LogErrorV("Unknown function referenced");
+    }
+
+    // If argument mismatch error.
+    if (calleeFunction->arg_size() != this->arguments.size()) {
+        return LogErrorV("Incorrect # arguments passed");
+    }
+
+    std::vector<Value *> argumentValue;
+    for (unsigned i = 0, e = this->arguments.size(); i != e; ++i) {
+        argumentValue.push_back(this->arguments[i]->codegen());
+        if (!argumentValue.back()){
+            return nullptr;
+        }
+    }
+
+    return Builder->CreateCall(calleeFunction, argumentValue, "calltmp");
+}
+
+Function *ASTProtoExpr::codegen() {
+    // Make the function type:  double(double,double) etc.
+    std::vector<Type*> argTypes(this->args.size(),
+                             Type::getDoubleTy(*TheContext));
+    FunctionType *functionType =
+        FunctionType::get(Type::getDoubleTy(*TheContext), argTypes, false);
+
+    Function *func =
+        Function::Create(functionType, Function::ExternalLinkage, this->name, TheModule.get());
+
+    // Set names for all arguments.
+    unsigned index = 0;
+    for (auto &arg : func->args()){
+        arg.setName(this->args[index++]);
+    }
+
+    return func;
+}
+
+Function *ASTFunctionExpr::codegen() {
+    // First, check for an existing function from a previous 'extern' declaration.
+    Function *func = TheModule->getFunction(this->prototype->getName());
+
+    if (!func){
+        // there is no existing function from extern
+        func = this->prototype->codegen();
+    }
+
+    if (!func) {
+        return nullptr;
+    }
+
+    if (!func->empty()){
+        // function is already defined elsewhere
+        return (Function*)LogErrorV("Function cannot be redefined.");
+    }
+
+    // Create a new basic block to start insertion into.
+    // A basic block is a control block, think of code enclosed by {} in c
+    // Since we don't have control flow (if statement) support for now, we only have a single block
+    BasicBlock *basicBlock = BasicBlock::Create(*TheContext, "entry", func);
+    
+    // Set the builder insertion point to the basic block
+    // This way it adds new instructions to the basic block 
+    Builder->SetInsertPoint(basicBlock);
+
+    // Need to clear the NamedValue map since we enter a new function
+    // TODO what about global variables?
+    NamedValues.clear();
+    for (auto &arg : func->args()){
+        // Record the function arguments in the NamedValues map.
+        NamedValues[std::string(arg.getName())] = &arg;
+    }
+
+    if (Value *returnValue = this->body->codegen()) {
+        // Finish off the function.
+        Builder->CreateRet(returnValue);
+
+        // Validate the generated code, checking for consistency.
+        verifyFunction(*func);
+
+        return func;
+    }  
+    // Error reading body, remove function.
+    func->eraseFromParent();
+    return nullptr;
+}
+
+void setupParser() {
+    TheContext = std::make_unique<LLVMContext>();
+    TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+
+    // Create a new builder for the module.
+    Builder = std::make_unique<IRBuilder<>>(*TheContext);
 }
