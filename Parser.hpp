@@ -37,6 +37,11 @@
 using namespace std;
 using namespace llvm;
 
+extern std::unique_ptr<LLVMContext> TheContext;
+extern std::unique_ptr<IRBuilder<>> Builder;
+extern std::unique_ptr<Module> TheModule;
+extern std::map<std::string, Value *> NamedValues;
+
 static void printIndentation(int level){
     for(int i = 0; i < level; i++) {
         std::cout << "----";

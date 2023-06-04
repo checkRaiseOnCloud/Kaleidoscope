@@ -269,7 +269,7 @@ std::unique_ptr<ASTProtoExpr> parseExtern() {
 std::unique_ptr<ASTFunctionExpr> parseTopLevelExpression() {
     if (auto expr = parseExpression()) {
         // Make an anonymous prototype
-        auto anonProto = std::make_unique<ASTProtoExpr>("", std::vector<std::string>());
+        auto anonProto = std::make_unique<ASTProtoExpr>("__anon_expr", std::vector<std::string>());
         return std::make_unique<ASTFunctionExpr>(std::move(anonProto), std::move(expr));
     }
     return nullptr;
@@ -279,10 +279,10 @@ std::unique_ptr<ASTFunctionExpr> parseTopLevelExpression() {
  **************************************** Code Gen ****************************************
  */
 
-static std::unique_ptr<LLVMContext> TheContext;
-static std::unique_ptr<IRBuilder<>> Builder;
-static std::unique_ptr<Module> TheModule;
-static std::map<std::string, Value *> NamedValues;
+std::unique_ptr<LLVMContext> TheContext;
+std::unique_ptr<IRBuilder<>> Builder;
+std::unique_ptr<Module> TheModule;
+std::map<std::string, Value *> NamedValues;
 
 Value *LogErrorV(const char *Str) {
   LogError(Str);
@@ -371,7 +371,7 @@ Function *ASTFunctionExpr::codegen() {
     Function *func = TheModule->getFunction(this->prototype->getName());
 
     if (!func){
-        // there is no existing function from extern
+        // there is no existing function definition or extern function with the same name
         func = this->prototype->codegen();
     }
 
@@ -417,7 +417,7 @@ Function *ASTFunctionExpr::codegen() {
 
 void setupParser() {
     TheContext = std::make_unique<LLVMContext>();
-    TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+    TheModule = std::make_unique<Module>("interpreter module", *TheContext);
 
     // Create a new builder for the module.
     Builder = std::make_unique<IRBuilder<>>(*TheContext);
